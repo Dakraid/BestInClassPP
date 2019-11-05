@@ -83,9 +83,9 @@ public:
     if (evn->menuName != holder->console)
       return kEvent_Continue;
 
-    _MESSAGE("Menu has been opened.");
-
     if (evn->opening) {
+      _MESSAGE("Menu \"%s\" has been opened", evn->menuName);
+
       MenuManager *mm = MenuManager::GetSingleton();
       IMenu *menu = mm->GetMenu(holder->inventoryMenu);
 
@@ -94,17 +94,16 @@ public:
         BSTArray<StandardItemData *> &itemDataArray =
             invMenu->inventoryData->items;
 
-        gLog << "Found " << itemDataArray.GetSize() << " items within the array"
-             << std::endl;
+        _MESSAGE("Found %d items within the array", itemDataArray.GetSize());
 
         if (!itemDataArray.empty()) {
           for (StandardItemData *itemData : itemDataArray) {
-            gLog << "Item: " << itemData->GetName();
+            _MESSAGE("Current item: %s", itemData->GetName());
 
             if (itemData->objDesc) {
               TESForm *temp = itemData->objDesc->baseForm;
               if (temp->IsWeapon() || temp->IsArmor()) {
-                gLog << " | Type: " << temp->GetTypeString() << std::endl;
+                _MESSAGE("Current type: %s", temp->GetTypeString());
               }
             }
           }
