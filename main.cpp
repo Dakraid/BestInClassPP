@@ -13,6 +13,8 @@
 #include <SKSE/SafeWrite.h>
 #include <SKSE/Version.h>
 
+#include "date.h"
+
 #include <algorithm>
 #include <vector>
 
@@ -50,6 +52,19 @@ private:
   */
   bestItem bestItemArray[16];
 
+  void LogMessage(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char formatBuf[1024];
+    vsprintf_s(formatBuf, fmt, args);
+    va_end(args);
+
+    std::string currTime =
+        date::format("%F %T", std::chrono::system_clock::now());
+
+    _MESSAGE("[%s] %s", currTime, formatBuf);
+  }
+
 public:
   Plugin_BestInClassPP_plugin() {}
 
@@ -84,7 +99,7 @@ public:
       return kEvent_Continue;
 
     if (evn->opening) {
-      _MESSAGE("Menu \"%s\" has been opened", evn->menuName);
+      LogMessage("Menu \"%s\" has been opened", evn->menuName);
 
       MenuManager *mm = MenuManager::GetSingleton();
       IMenu *menu = mm->GetMenu(holder->inventoryMenu);
@@ -94,16 +109,17 @@ public:
         BSTArray<StandardItemData *> &itemDataArray =
             invMenu->inventoryData->items;
 
-        _MESSAGE("Found %d items within the array", itemDataArray.GetSize());
+        LogMessage("Found %d items within the inventory array",
+                   itemDataArray.GetSize());
 
-        if (!itemDataArray.empty()) {
+        if (itemDataArray.GetSize() > 0) {
           for (StandardItemData *itemData : itemDataArray) {
-            _MESSAGE("Current item: %s", itemData->GetName());
+            LogMessage("Current item: %s", itemData->GetName());
 
             if (itemData->objDesc) {
               TESForm *temp = itemData->objDesc->baseForm;
               if (temp->IsWeapon() || temp->IsArmor()) {
-                _MESSAGE("Current type: %s", temp->GetTypeString());
+                LogMessage("Current type: %s", temp->GetTypeString());
               }
             }
           }

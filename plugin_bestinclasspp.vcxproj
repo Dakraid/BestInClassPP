@@ -108,6 +108,9 @@
       <Project>{ad95f75e-fd79-4f2f-bc36-828d592a790a}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="date.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
