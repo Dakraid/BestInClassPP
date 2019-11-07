@@ -20,7 +20,7 @@
 #include "date.h"
 
 static const char* g_pluginName	   = "BestInClass++";
-const UInt32	   g_pluginVersion = 0x00030400;
+const UInt32	   g_pluginVersion = 0x00030500;
 
 class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuOpenCloseEvent>
 {
@@ -96,12 +96,15 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 
 	virtual bool OnLoad() override
 	{
-		LogMessage("Adding menu event sinks");
+		LogMessage("Registering for SKSE events");
+
 		MenuManager* mm = MenuManager::GetSingleton();
 		mm->BSTEventSource<MenuOpenCloseEvent>::AddEventSink(this);
 
 		LogMessage("Disabling vanilla bestInClass function at memory location %X", 0x008684A0);
 		SafeWrite8(0x008684A0, 0xC3);
+
+		std::fill_n(bestItemArray, 16, bestItem{NULL, 0});
 
 		return true;
 	}
@@ -120,95 +123,49 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 				InventoryMenu*				 invMenu	   = static_cast<InventoryMenu*>(menu);
 				BSTArray<StandardItemData*>& itemDataArray = invMenu->inventoryData->items;
 
-				/*
-				for(bestItem item : bestItemArray) {
-					if(item.itemData) {
-						item.itemData		 = NULL;
-						item.comparisonValue = 0;
-					}
-				}
-				*/
-
 				if(!itemDataArray.empty()) {
 					for(StandardItemData* itemData : itemDataArray) {
-						LogMessage("Item \"%s\" is being processed", itemData->GetName());
+						// LogMessage("Item \"%s\" is being processed", itemData->GetName());
 						TESForm* baseForm = itemData->objDesc->baseForm;
 
 						if(baseForm) {
 							LogMessage("Current item \"%s\" has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
+							int targetIndex = -1;
 							if(baseForm->IsWeapon()) {
 								TESObjectWEAP* objWEAP = DYNAMIC_CAST<TESObjectWEAP*>(baseForm);
 
 								if(objWEAP) {
 									LogMessage("Weapon %s has type %d", itemData->GetName(), objWEAP->gameData.type);
-									switch(objWEAP->gameData.type) {
-										case 1: // Sword
-											if(bestItemArray[10].itemData) {
-												if(objWEAP->attackDamage > bestItemArray[10].comparisonValue) {
-													bestItemArray[10].itemData		  = itemData;
-													bestItemArray[10].comparisonValue = objWEAP->attackDamage;
-												}
-											} else {
-												bestItemArray[10].itemData		  = itemData;
-												bestItemArray[10].comparisonValue = objWEAP->attackDamage;
-											}
+									switch(objWEAP->type()) {
+										case TESObjectWEAP::GameData::kType_OneHandSword: // Sword
+											targetIndex = 10;
+										case TESObjectWEAP::GameData::kType_OneHandDagger: // Dagger
+											targetIndex = 13;
 											break;
-										case 2: // Dagger
-											if(bestItemArray[13].itemData) {
-												if(objWEAP->attackDamage > bestItemArray[10].comparisonValue) {
-													bestItemArray[13].itemData		  = itemData;
-													bestItemArray[13].comparisonValue = objWEAP->attackDamage;
-												}
-											} else {
-												bestItemArray[13].itemData		  = itemData;
-												bestItemArray[13].comparisonValue = objWEAP->attackDamage;
-											}
+										case TESObjectWEAP::GameData::kType_OneHandAxe: // Axe
+											targetIndex = 11;
 											break;
-										case 3: // Axe
-											if(bestItemArray[11].itemData) {
-												if(objWEAP->attackDamage > bestItemArray[11].comparisonValue) {
-													bestItemArray[11].itemData		  = itemData;
-													bestItemArray[11].comparisonValue = objWEAP->attackDamage;
-												}
-											} else {
-												bestItemArray[11].itemData		  = itemData;
-												bestItemArray[11].comparisonValue = objWEAP->attackDamage;
-											}
+										case TESObjectWEAP::GameData::kType_OneHandMace: // Mace
+											targetIndex = 12;
 											break;
-										case 4: // Mace
-											if(bestItemArray[12].itemData) {
-												if(objWEAP->attackDamage > bestItemArray[12].comparisonValue) {
-													bestItemArray[12].itemData		  = itemData;
-													bestItemArray[12].comparisonValue = objWEAP->attackDamage;
-												}
-											} else {
-												bestItemArray[12].itemData		  = itemData;
-												bestItemArray[12].comparisonValue = objWEAP->attackDamage;
-											}
+										case TESObjectWEAP::GameData::kType_TwoHandSword: // Greatsword
+											targetIndex = 14;
 											break;
-										case 5: // Greatsword
-											if(bestItemArray[14].itemData) {
-												if(objWEAP->attackDamage > bestItemArray[14].comparisonValue) {
-													bestItemArray[14].itemData		  = itemData;
-													bestItemArray[14].comparisonValue = objWEAP->attackDamage;
-												}
-											} else {
-												bestItemArray[14].itemData		  = itemData;
-												bestItemArray[14].comparisonValue = objWEAP->attackDamage;
-											}
+										case TESObjectWEAP::GameData::kType_TwoHandAxe: // Battleaxe
+											targetIndex = 15;
 											break;
-										case 6: // Battleaxe
-											if(bestItemArray[15].itemData) {
-												if(objWEAP->attackDamage > bestItemArray[15].comparisonValue) {
-													bestItemArray[15].itemData		  = itemData;
-													bestItemArray[15].comparisonValue = objWEAP->attackDamage;
-												}
-											} else {
-												bestItemArray[15].itemData		  = itemData;
-												bestItemArray[15].comparisonValue = objWEAP->attackDamage;
+										default: targetIndex = -1; break;
+									}
+									if(targetIndex != -1) {
+										if(bestItemArray[targetIndex].itemData) {
+											if(objWEAP->attackDamage > bestItemArray[targetIndex].comparisonValue) {
+												bestItemArray[targetIndex].itemData		   = itemData;
+												bestItemArray[targetIndex].comparisonValue = objWEAP->attackDamage;
 											}
-											break;
-										default: break;
+										} else {
+											bestItemArray[targetIndex].itemData		   = itemData;
+											bestItemArray[targetIndex].comparisonValue = objWEAP->attackDamage;
+										}
 									}
 								}
 							} else if(baseForm->IsArmor()) {
@@ -219,117 +176,52 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 									if(objARMO->IsLightArmor()) {
 										if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Body)) {
 											// Armor
-											if(bestItemArray[0].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[0].comparisonValue) {
-													bestItemArray[0].itemData		 = itemData;
-													bestItemArray[0].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[0].itemData		 = itemData;
-												bestItemArray[0].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 0;
 										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Feet)) {
 											// Boots
-											if(bestItemArray[1].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[1].comparisonValue) {
-													bestItemArray[1].itemData		 = itemData;
-													bestItemArray[1].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[1].itemData		 = itemData;
-												bestItemArray[1].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 1;
 										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hands)) {
 											// Gauntlets
-											if(bestItemArray[2].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[2].comparisonValue) {
-													bestItemArray[2].itemData		 = itemData;
-													bestItemArray[2].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[2].itemData		 = itemData;
-												bestItemArray[2].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 2;
 										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hair)) {
 											// Helmet
-											if(bestItemArray[3].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[3].comparisonValue) {
-													bestItemArray[3].itemData		 = itemData;
-													bestItemArray[3].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[3].itemData		 = itemData;
-												bestItemArray[3].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 3;
 										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Shield)) {
 											// Shield
-											if(bestItemArray[4].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[4].comparisonValue) {
-													bestItemArray[4].itemData		 = itemData;
-													bestItemArray[4].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[4].itemData		 = itemData;
-												bestItemArray[4].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 4;
+										} else {
+											targetIndex = -1;
 										}
 									} else if(objARMO->IsHeavyArmor()) {
 										if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Body)) {
 											// Armor
-											if(bestItemArray[5].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[5].comparisonValue) {
-													bestItemArray[5].itemData		 = itemData;
-													bestItemArray[5].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[5].itemData		 = itemData;
-												bestItemArray[5].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 5;
 										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Feet)) {
 											// Boots
-											if(bestItemArray[6].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[6].comparisonValue) {
-													bestItemArray[6].itemData		 = itemData;
-													bestItemArray[6].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[6].itemData		 = itemData;
-												bestItemArray[6].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 6;
 										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hands)) {
 											// Gauntlets
-											if(bestItemArray[7].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[7].comparisonValue) {
-													bestItemArray[7].itemData		 = itemData;
-													bestItemArray[7].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[7].itemData		 = itemData;
-												bestItemArray[7].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 7;
 										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hair)) {
 											// Helmet
-											if(bestItemArray[8].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[8].comparisonValue) {
-													bestItemArray[8].itemData		 = itemData;
-													bestItemArray[8].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[8].itemData		 = itemData;
-												bestItemArray[8].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 8;
 										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Shield)) {
 											// Shield
-											if(bestItemArray[9].itemData) {
-												if(objARMO->armorValTimes100 > bestItemArray[9].comparisonValue) {
-													bestItemArray[9].itemData		 = itemData;
-													bestItemArray[9].comparisonValue = objARMO->armorValTimes100;
-												}
-											} else {
-												bestItemArray[9].itemData		 = itemData;
-												bestItemArray[9].comparisonValue = objARMO->armorValTimes100;
-											}
+											targetIndex = 9;
+										} else {
+											targetIndex = -1;
 										}
+									}
+								}
+								if(targetIndex != -1) {
+									if(bestItemArray[targetIndex].itemData) {
+										if(objARMO->armorValTimes100 > bestItemArray[targetIndex].comparisonValue) {
+											bestItemArray[targetIndex].itemData		   = itemData;
+											bestItemArray[targetIndex].comparisonValue = objARMO->armorValTimes100;
+										}
+									} else {
+										bestItemArray[targetIndex].itemData		   = itemData;
+										bestItemArray[targetIndex].comparisonValue = objARMO->armorValTimes100;
 									}
 								}
 							}
