@@ -70,7 +70,7 @@
       <AdditionalLibraryDirectories>$(SolutionDir)mruby\build\host\lib</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>"$(SolutionDir)install_dll.bat" "$(TargetPath)"</Command>
+      <Command>(robocopy "$(TargetDir.TrimEnd('\'))" "S:\ModOrganizer\Mods\Debugging\SKSE\Plugins" $(TargetFileName)  /is) ^&amp; IF %ERRORLEVEL% LEQ 1 exit 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
