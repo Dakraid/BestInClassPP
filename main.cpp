@@ -20,23 +20,10 @@
 #include "date.h"
 
 static const char* g_pluginName	   = "BestInClass++";
-const UInt32	   g_pluginVersion = 0x00030500;
+const UInt32	   g_pluginVersion = 0x00050000;
 
 class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuOpenCloseEvent>
 {
-	private:
-	/*
-		bestItem Structure
-		The bestItem struct is part of an attempt at optimizing the code.
-		Instead of accessing the stored item to get its value for comparison
-		we save it separately with it.
-	*/
-	struct bestItem
-	{
-		StandardItemData* itemData;
-		float			  comparisonValue;
-	};
-
 	/*
 		bestItem Index Assignment
 		The bestItemArray assigns an item type to an index
@@ -51,10 +38,14 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 		Weapons
 		10	1HSword			| 14	2HGreatsword
 		11	1HWarAxe		| 15	2HBattleaxe
-		12	1HMace			| 16	2HWarhammer ? No kType defined
-		13	1HDagger
+		12	1HMace			| 16	Bow
+		13	1HDagger		| 17	Crossbow
+
+		Ammunition
+		18	Arrow			| 19	Bolts
 	*/
-	bestItem bestItemArray[16];
+	StandardItemData* bestItemArray[19];
+	float			  bestValueArray[19];
 
 	void LogMessage(const char* fmt, ...)
 	{
@@ -104,14 +95,14 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 		LogMessage("Disabling vanilla bestInClass function at memory location %X", 0x008684A0);
 		SafeWrite8(0x008684A0, 0xC3);
 
-		std::fill_n(bestItemArray, 16, bestItem{NULL, 0});
-
 		return true;
 	}
 
 	virtual EventResult ReceiveEvent(MenuOpenCloseEvent* evn, BSTEventSource<MenuOpenCloseEvent>* src) override
 	{
 		UIStringHolder* holder = UIStringHolder::GetSingleton();
+		std::fill_n(bestItemArray, 19, nullptr);
+		std::fill_n(bestValueArray, 19, 0);
 
 		if(evn->opening && (evn->menuName == holder->inventoryMenu || evn->menuName == holder->barterMenu || evn->menuName == holder->containerMenu)) {
 			LogMessage("Menu \"%s\" has been opened", evn->menuName);
@@ -125,50 +116,59 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 
 				if(!itemDataArray.empty()) {
 					for(StandardItemData* itemData : itemDataArray) {
-						// LogMessage("Item \"%s\" is being processed", itemData->GetName());
 						TESForm* baseForm = itemData->objDesc->baseForm;
 
 						if(baseForm) {
-							LogMessage("Current item \"%s\" has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
 							int targetIndex = -1;
 							if(baseForm->IsWeapon()) {
+								LogMessage("Current item \"%s\" has baseFormID %08X", itemData->GetName(), baseForm->GetFormID());
 								TESObjectWEAP* objWEAP = DYNAMIC_CAST<TESObjectWEAP*>(baseForm);
 
 								if(objWEAP) {
 									LogMessage("Weapon %s has type %d", itemData->GetName(), objWEAP->gameData.type);
 									switch(objWEAP->type()) {
+										case TESObjectWEAP::GameData::kType_1HS:
 										case TESObjectWEAP::GameData::kType_OneHandSword: // Sword
 											targetIndex = 10;
+										case TESObjectWEAP::GameData::kType_1HD:
 										case TESObjectWEAP::GameData::kType_OneHandDagger: // Dagger
 											targetIndex = 13;
 											break;
+										case TESObjectWEAP::GameData::kType_1HA:
 										case TESObjectWEAP::GameData::kType_OneHandAxe: // Axe
 											targetIndex = 11;
 											break;
+										case TESObjectWEAP::GameData::kType_1HM:
 										case TESObjectWEAP::GameData::kType_OneHandMace: // Mace
 											targetIndex = 12;
 											break;
+										case TESObjectWEAP::GameData::kType_2HS:
 										case TESObjectWEAP::GameData::kType_TwoHandSword: // Greatsword
 											targetIndex = 14;
 											break;
+										case TESObjectWEAP::GameData::kType_2HA:
 										case TESObjectWEAP::GameData::kType_TwoHandAxe: // Battleaxe
 											targetIndex = 15;
+											break;
+										case TESObjectWEAP::GameData::kType_Bow2:
+										case TESObjectWEAP::GameData::kType_Bow: // Bow
+											targetIndex = 16;
+											break;
+										case TESObjectWEAP::GameData::kType_CBow:
+										case TESObjectWEAP::GameData::kType_CrossBow: // Crossbow
+											targetIndex = 17;
 											break;
 										default: targetIndex = -1; break;
 									}
 									if(targetIndex != -1) {
-										if(bestItemArray[targetIndex].itemData) {
-											if(objWEAP->attackDamage > bestItemArray[targetIndex].comparisonValue) {
-												bestItemArray[targetIndex].itemData		   = itemData;
-												bestItemArray[targetIndex].comparisonValue = objWEAP->attackDamage;
-											}
-										} else {
-											bestItemArray[targetIndex].itemData		   = itemData;
-											bestItemArray[targetIndex].comparisonValue = objWEAP->attackDamage;
+										if(objWEAP->attackDamage > bestValueArray[targetIndex]) {
+											bestItemArray[targetIndex]	= itemData;
+											bestValueArray[targetIndex] = objWEAP->attackDamage;
 										}
 									}
 								}
 							} else if(baseForm->IsArmor()) {
+								LogMessage("Current item \"%s\" has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
 								TESObjectARMO* objARMO = DYNAMIC_CAST<TESObjectARMO*>(baseForm);
 
 								if(objARMO) {
@@ -212,16 +212,29 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 											targetIndex = -1;
 										}
 									}
-								}
-								if(targetIndex != -1) {
-									if(bestItemArray[targetIndex].itemData) {
-										if(objARMO->armorValTimes100 > bestItemArray[targetIndex].comparisonValue) {
-											bestItemArray[targetIndex].itemData		   = itemData;
-											bestItemArray[targetIndex].comparisonValue = objARMO->armorValTimes100;
+									if(targetIndex != -1) {
+										if(objARMO->armorValTimes100 > bestValueArray[targetIndex]) {
+											bestItemArray[targetIndex]	= itemData;
+											bestValueArray[targetIndex] = objARMO->armorValTimes100;
 										}
+									}
+								}
+							} else if(baseForm->IsAmmo()) {
+								LogMessage("Current item \"%s\" has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
+								TESAmmo* tesAMMO = DYNAMIC_CAST<TESAmmo*>(baseForm);
+
+								if(tesAMMO) {
+									if(!tesAMMO->isBolt()) {
+										targetIndex = 18;
 									} else {
-										bestItemArray[targetIndex].itemData		   = itemData;
-										bestItemArray[targetIndex].comparisonValue = objARMO->armorValTimes100;
+										targetIndex = 19;
+									}
+
+									if(targetIndex != -1) {
+										if(tesAMMO->settings.damage > bestValueArray[targetIndex]) {
+											bestItemArray[targetIndex]	= itemData;
+											bestValueArray[targetIndex] = tesAMMO->settings.damage;
+										}
 									}
 								}
 							}
@@ -229,22 +242,22 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 					}
 				}
 			}
+
+			// By setting the member "bestInClass" to true,
+			// we tell the UI to mark the item
+			for(StandardItemData* itemData : bestItemArray) {
+				if(itemData) {
+					LogMessage("The best item of type is %s", itemData->GetName());
+
+					GFxValue* gfxVal = dynamic_cast<GFxValue*>(&itemData->fxValue);
+					if(gfxVal != NULL) { gfxVal->SetMember("bestInClass", true); }
+				}
+			}
+
+			return kEvent_Continue;
 		} else {
 			return kEvent_Continue;
 		}
-
-		// By setting the member "bestInClass" to true,
-		// we tell the UI to mark the item
-		for(bestItem item : bestItemArray) {
-			if(item.itemData) {
-				LogMessage("The best item of type is %s", item.itemData->GetName());
-
-				GFxValue* gfxVal = static_cast<GFxValue*>(&item.itemData->fxValue);
-				gfxVal->SetMember("bestInClass", true);
-			}
-		}
-
-		return kEvent_Continue;
 	}
 
 	virtual void OnModLoaded() override {}
