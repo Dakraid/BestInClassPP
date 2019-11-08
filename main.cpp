@@ -20,12 +20,12 @@
 #include "date.h"
 
 static const char* g_pluginName	   = "BestInClass++";
-const UInt32	   g_pluginVersion = 0x00050000;
+const UInt32	   g_pluginVersion = 0x00050100;
 
 class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuOpenCloseEvent>
 {
 	/*
-		bestItem Index Assignment
+		bestItem/bestValue Array Index Assignment
 		The bestItemArray assigns an item type to an index
 
 		Armors
@@ -92,7 +92,7 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 		MenuManager* mm = MenuManager::GetSingleton();
 		mm->BSTEventSource<MenuOpenCloseEvent>::AddEventSink(this);
 
-		LogMessage("Disabling vanilla bestInClass function at memory location %X", 0x008684A0);
+		LogMessage("Disabling vanilla bestInClass function at memory location %08X", 0x008684A0);
 		SafeWrite8(0x008684A0, 0xC3);
 
 		return true;
@@ -101,14 +101,15 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 	virtual EventResult ReceiveEvent(MenuOpenCloseEvent* evn, BSTEventSource<MenuOpenCloseEvent>* src) override
 	{
 		UIStringHolder* holder = UIStringHolder::GetSingleton();
-		std::fill_n(bestItemArray, 19, nullptr);
-		std::fill_n(bestValueArray, 19, 0);
 
 		if(evn->opening && (evn->menuName == holder->inventoryMenu || evn->menuName == holder->barterMenu || evn->menuName == holder->containerMenu)) {
 			LogMessage("Menu \"%s\" has been opened", evn->menuName);
 
 			MenuManager* mm	  = MenuManager::GetSingleton();
 			IMenu*		 menu = mm->GetMenu(holder->inventoryMenu);
+
+			std::fill_n(bestItemArray, 19, nullptr);
+			std::fill_n(bestValueArray, 19, 0);
 
 			if(menu && holder->inventoryMenu) {
 				InventoryMenu*				 invMenu	   = static_cast<InventoryMenu*>(menu);
@@ -121,15 +122,16 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 						if(baseForm) {
 							int targetIndex = -1;
 							if(baseForm->IsWeapon()) {
-								LogMessage("Current item \"%s\" has baseFormID %08X", itemData->GetName(), baseForm->GetFormID());
+								LogMessage("	Item %s has baseFormID %08X", itemData->GetName(), baseForm->GetFormID());
 								TESObjectWEAP* objWEAP = DYNAMIC_CAST<TESObjectWEAP*>(baseForm);
 
 								if(objWEAP) {
-									LogMessage("Weapon %s has type %d", itemData->GetName(), objWEAP->gameData.type);
+									LogMessage("	Weapon %s has type %d", itemData->GetName(), objWEAP->gameData.type);
 									switch(objWEAP->type()) {
 										case TESObjectWEAP::GameData::kType_1HS:
 										case TESObjectWEAP::GameData::kType_OneHandSword: // Sword
 											targetIndex = 10;
+											break;
 										case TESObjectWEAP::GameData::kType_1HD:
 										case TESObjectWEAP::GameData::kType_OneHandDagger: // Dagger
 											targetIndex = 13;
@@ -161,18 +163,21 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 										default: targetIndex = -1; break;
 									}
 									if(targetIndex != -1) {
+										LogMessage("		Curr Item: %s with %d damage", itemData->GetName(), objWEAP->attackDamage);
+										if(bestItemArray[targetIndex]) { LogMessage("		Last Item: %s with %d damage", bestItemArray[targetIndex]->GetName(), bestValueArray[targetIndex]); }
 										if(objWEAP->attackDamage > bestValueArray[targetIndex]) {
 											bestItemArray[targetIndex]	= itemData;
 											bestValueArray[targetIndex] = objWEAP->attackDamage;
+											LogMessage("		Saved Item: %s with %d damage", itemData->GetName(), objWEAP->attackDamage);
 										}
 									}
 								}
 							} else if(baseForm->IsArmor()) {
-								LogMessage("Current item \"%s\" has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
+								LogMessage("	Item %s has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
 								TESObjectARMO* objARMO = DYNAMIC_CAST<TESObjectARMO*>(baseForm);
 
 								if(objARMO) {
-									LogMessage("Armor piece %s occupies slot mask %d", itemData->GetName(), objARMO->GetSlotMask());
+									LogMessage("	Armor piece %s occupies slot mask %d", itemData->GetName(), objARMO->GetSlotMask());
 									if(objARMO->IsLightArmor()) {
 										if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Body)) {
 											// Armor
@@ -220,7 +225,7 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 									}
 								}
 							} else if(baseForm->IsAmmo()) {
-								LogMessage("Current item \"%s\" has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
+								LogMessage("	Item %s has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
 								TESAmmo* tesAMMO = DYNAMIC_CAST<TESAmmo*>(baseForm);
 
 								if(tesAMMO) {
@@ -249,10 +254,11 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 				if(itemData) {
 					LogMessage("The best item of type is %s", itemData->GetName());
 
-					GFxValue* gfxVal = dynamic_cast<GFxValue*>(&itemData->fxValue);
-					if(gfxVal != NULL) { gfxVal->SetMember("bestInClass", true); }
+					itemData->fxValue.SetMember("bestInClass", true);
 				}
 			}
+
+			LogMessage("Finished marking the best items");
 
 			return kEvent_Continue;
 		} else {
