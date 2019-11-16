@@ -19,8 +19,11 @@
 
 #include "date.h"
 
-static const char* g_pluginName	   = "BestInClass++";
-const UInt32	   g_pluginVersion = 0x00050100;
+const enum g_ReleaseTypes { Devel, Testing, Candidate, Release };
+
+static const char*	 g_pluginName	 = "BestInClass++";
+const UInt32		 g_pluginVersion = 0x00070400;
+const g_ReleaseTypes g_pluginRelease = Devel;
 
 class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuOpenCloseEvent>
 {
@@ -43,9 +46,14 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 
 		Ammunition
 		18	Arrow			| 19	Bolts
+
+		Clothing
+		20 ClothingBody		| 22 ClothingGloves
+		21 ClothingShoes	| 23 ClothingHat
 	*/
-	StandardItemData* bestItemArray[19];
-	float			  bestValueArray[19];
+	static const int  arraySize = 23;
+	StandardItemData* bestItemArray[arraySize];
+	float			  bestValueArray[arraySize];
 
 	void LogMessage(const char* fmt, ...)
 	{
@@ -79,7 +87,16 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 			UInt8 main	= v >> 0x18;
 			UInt8 major = v >> 0x10;
 			UInt8 minor = v >> 0x08;
-			LogMessage("Current version is %d.%d.%d", main, major, minor);
+
+			std::string rType;
+
+			switch(g_pluginRelease) {
+				case Devel: rType = "Development"; break;
+				case Testing: rType = "Testing"; break;
+				case Candidate: rType = "Release Candidate"; break;
+				case Release: rType = "Release"; break;
+			}
+			LogMessage("Current version is %d.%d.%d (%s)", main, major, minor, rType);
 		}
 
 		return true;
@@ -102,19 +119,18 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 	{
 		UIStringHolder* holder = UIStringHolder::GetSingleton();
 
-		if(evn->opening && (evn->menuName == holder->inventoryMenu || evn->menuName == holder->barterMenu || evn->menuName == holder->containerMenu)) {
+		if(evn->opening && (evn->menuName == holder->inventoryMenu)) {
 			LogMessage("Menu \"%s\" has been opened", evn->menuName);
 
-			MenuManager* mm	  = MenuManager::GetSingleton();
-			IMenu*		 menu = mm->GetMenu(holder->inventoryMenu);
+			MenuManager*				 mm			   = MenuManager::GetSingleton();
+			IMenu*						 menu		   = mm->GetMenu(holder->inventoryMenu);
+			InventoryMenu*				 invMenu	   = static_cast<InventoryMenu*>(menu);
+			BSTArray<StandardItemData*>& itemDataArray = invMenu->inventoryData->items;
 
-			std::fill_n(bestItemArray, 19, nullptr);
-			std::fill_n(bestValueArray, 19, 0);
+			std::fill_n(bestItemArray, arraySize, nullptr);
+			std::fill_n(bestValueArray, arraySize, 0);
 
 			if(menu && holder->inventoryMenu) {
-				InventoryMenu*				 invMenu	   = static_cast<InventoryMenu*>(menu);
-				BSTArray<StandardItemData*>& itemDataArray = invMenu->inventoryData->items;
-
 				if(!itemDataArray.empty()) {
 					for(StandardItemData* itemData : itemDataArray) {
 						TESForm* baseForm = itemData->objDesc->baseForm;
@@ -122,11 +138,11 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 						if(baseForm) {
 							int targetIndex = -1;
 							if(baseForm->IsWeapon()) {
-								LogMessage("	Item %s has baseFormID %08X", itemData->GetName(), baseForm->GetFormID());
+								LogMessage("Item %s has baseFormID %08X", itemData->GetName(), baseForm->GetFormID());
 								TESObjectWEAP* objWEAP = DYNAMIC_CAST<TESObjectWEAP*>(baseForm);
 
 								if(objWEAP) {
-									LogMessage("	Weapon %s has type %d", itemData->GetName(), objWEAP->gameData.type);
+									LogMessage("Weapon %s has type %d", itemData->GetName(), objWEAP->gameData.type);
 									switch(objWEAP->type()) {
 										case TESObjectWEAP::GameData::kType_1HS:
 										case TESObjectWEAP::GameData::kType_OneHandSword: // Sword
@@ -173,11 +189,11 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 									}
 								}
 							} else if(baseForm->IsArmor()) {
-								LogMessage("	Item %s has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
+								LogMessage("Item %s has baseFormID %08X", itemData->GetName(), baseForm->GetFormID());
 								TESObjectARMO* objARMO = DYNAMIC_CAST<TESObjectARMO*>(baseForm);
 
 								if(objARMO) {
-									LogMessage("	Armor piece %s occupies slot mask %d", itemData->GetName(), objARMO->GetSlotMask());
+									LogMessage("Armor piece %s occupies slot mask %d", itemData->GetName(), objARMO->GetSlotMask());
 									if(objARMO->IsLightArmor()) {
 										if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Body)) {
 											// Armor
@@ -216,6 +232,22 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 										} else {
 											targetIndex = -1;
 										}
+									} else {
+										if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Body)) {
+											// Body
+											targetIndex = 20;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Feet)) {
+											// Shoes
+											targetIndex = 21;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hands)) {
+											// Gloves
+											targetIndex = 22;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hair)) {
+											// Hat
+											targetIndex = 23;
+										} else {
+											targetIndex = -1;
+										}
 									}
 									if(targetIndex != -1) {
 										if(objARMO->armorValTimes100 > bestValueArray[targetIndex]) {
@@ -225,7 +257,7 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 									}
 								}
 							} else if(baseForm->IsAmmo()) {
-								LogMessage("	Item %s has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
+								LogMessage("Item %s has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
 								TESAmmo* tesAMMO = DYNAMIC_CAST<TESAmmo*>(baseForm);
 
 								if(tesAMMO) {
@@ -254,6 +286,183 @@ class Plugin_BestInClassPP_plugin : public SKSEPlugin, public BSTEventSink<MenuO
 				if(itemData) {
 					LogMessage("The best item of type is %s", itemData->GetName());
 
+					LogMessage("The address of the fxValue is %08X", &itemData->fxValue);
+					itemData->fxValue.SetMember("bestInClass", true);
+				}
+			}
+
+			LogMessage("Finished marking the best items");
+
+			return kEvent_Continue;
+		} else if(evn->opening && (evn->menuName == holder->barterMenu)) {
+			LogMessage("Menu \"%s\" has been opened", evn->menuName);
+
+			MenuManager* mm		 = MenuManager::GetSingleton();
+			IMenu*		 menu	 = mm->GetMenu(holder->barterMenu);
+			BarterMenu*	 barMenu = static_cast<BarterMenu*>(menu);
+
+			BSTArray<StandardItemData*>& itemDataArray = barMenu->inventoryData->items;
+
+			std::fill_n(bestItemArray, arraySize, nullptr);
+			std::fill_n(bestValueArray, arraySize, 0);
+
+			if(menu && holder->inventoryMenu) {
+				if(!itemDataArray.empty()) {
+					for(StandardItemData* itemData : itemDataArray) {
+						TESForm* baseForm = itemData->objDesc->baseForm;
+
+						if(baseForm) {
+							int targetIndex = -1;
+							if(baseForm->IsWeapon()) {
+								LogMessage("Item %s has baseFormID %08X", itemData->GetName(), baseForm->GetFormID());
+								TESObjectWEAP* objWEAP = DYNAMIC_CAST<TESObjectWEAP*>(baseForm);
+
+								if(objWEAP) {
+									LogMessage("Weapon %s has type %d", itemData->GetName(), objWEAP->gameData.type);
+									switch(objWEAP->type()) {
+										case TESObjectWEAP::GameData::kType_1HS:
+										case TESObjectWEAP::GameData::kType_OneHandSword: // Sword
+											targetIndex = 10;
+											break;
+										case TESObjectWEAP::GameData::kType_1HD:
+										case TESObjectWEAP::GameData::kType_OneHandDagger: // Dagger
+											targetIndex = 13;
+											break;
+										case TESObjectWEAP::GameData::kType_1HA:
+										case TESObjectWEAP::GameData::kType_OneHandAxe: // Axe
+											targetIndex = 11;
+											break;
+										case TESObjectWEAP::GameData::kType_1HM:
+										case TESObjectWEAP::GameData::kType_OneHandMace: // Mace
+											targetIndex = 12;
+											break;
+										case TESObjectWEAP::GameData::kType_2HS:
+										case TESObjectWEAP::GameData::kType_TwoHandSword: // Greatsword
+											targetIndex = 14;
+											break;
+										case TESObjectWEAP::GameData::kType_2HA:
+										case TESObjectWEAP::GameData::kType_TwoHandAxe: // Battleaxe
+											targetIndex = 15;
+											break;
+										case TESObjectWEAP::GameData::kType_Bow2:
+										case TESObjectWEAP::GameData::kType_Bow: // Bow
+											targetIndex = 16;
+											break;
+										case TESObjectWEAP::GameData::kType_CBow:
+										case TESObjectWEAP::GameData::kType_CrossBow: // Crossbow
+											targetIndex = 17;
+											break;
+										default: targetIndex = -1; break;
+									}
+									if(targetIndex != -1) {
+										LogMessage("		Curr Item: %s with %d damage", itemData->GetName(), objWEAP->attackDamage);
+										if(bestItemArray[targetIndex]) { LogMessage("		Last Item: %s with %d damage", bestItemArray[targetIndex]->GetName(), bestValueArray[targetIndex]); }
+										if(objWEAP->attackDamage > bestValueArray[targetIndex]) {
+											bestItemArray[targetIndex]	= itemData;
+											bestValueArray[targetIndex] = objWEAP->attackDamage;
+											LogMessage("		Saved Item: %s with %d damage", itemData->GetName(), objWEAP->attackDamage);
+										}
+									}
+								}
+							} else if(baseForm->IsArmor()) {
+								LogMessage("Item %s has baseFormID %08X", itemData->GetName(), baseForm->GetFormID());
+								TESObjectARMO* objARMO = DYNAMIC_CAST<TESObjectARMO*>(baseForm);
+
+								if(objARMO) {
+									LogMessage("Armor piece %s occupies slot mask %d", itemData->GetName(), objARMO->GetSlotMask());
+									if(objARMO->IsLightArmor()) {
+										if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Body)) {
+											// Armor
+											targetIndex = 0;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Feet)) {
+											// Boots
+											targetIndex = 1;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hands)) {
+											// Gauntlets
+											targetIndex = 2;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hair)) {
+											// Helmet
+											targetIndex = 3;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Shield)) {
+											// Shield
+											targetIndex = 4;
+										} else {
+											targetIndex = -1;
+										}
+									} else if(objARMO->IsHeavyArmor()) {
+										if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Body)) {
+											// Armor
+											targetIndex = 5;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Feet)) {
+											// Boots
+											targetIndex = 6;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hands)) {
+											// Gauntlets
+											targetIndex = 7;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hair)) {
+											// Helmet
+											targetIndex = 8;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Shield)) {
+											// Shield
+											targetIndex = 9;
+										} else {
+											targetIndex = -1;
+										}
+									} else {
+										if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Body)) {
+											// Body
+											targetIndex = 20;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Feet)) {
+											// Shoes
+											targetIndex = 21;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hands)) {
+											// Gloves
+											targetIndex = 22;
+										} else if(objARMO->HasPartOf(BGSBipedObjectForm::kPart_Hair)) {
+											// Hat
+											targetIndex = 23;
+										} else {
+											targetIndex = -1;
+										}
+									}
+									if(targetIndex != -1) {
+										if(objARMO->armorValTimes100 > bestValueArray[targetIndex]) {
+											bestItemArray[targetIndex]	= itemData;
+											bestValueArray[targetIndex] = objARMO->armorValTimes100;
+										}
+									}
+								}
+							} else if(baseForm->IsAmmo()) {
+								LogMessage("Item %s has baseFormID %X", itemData->GetName(), baseForm->GetFormID());
+								TESAmmo* tesAMMO = DYNAMIC_CAST<TESAmmo*>(baseForm);
+
+								if(tesAMMO) {
+									if(!tesAMMO->isBolt()) {
+										targetIndex = 18;
+									} else {
+										targetIndex = 19;
+									}
+
+									if(targetIndex != -1) {
+										if(tesAMMO->settings.damage > bestValueArray[targetIndex]) {
+											bestItemArray[targetIndex]	= itemData;
+											bestValueArray[targetIndex] = tesAMMO->settings.damage;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// By setting the member "bestInClass" to true,
+			// we tell the UI to mark the item
+			for(StandardItemData* itemData : bestItemArray) {
+				if(itemData) {
+					LogMessage("The best item of type is %s", itemData->GetName());
+
+					LogMessage("The address of the fxValue is %08X", &itemData->fxValue);
 					itemData->fxValue.SetMember("bestInClass", true);
 				}
 			}
