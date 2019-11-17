@@ -11,9 +11,9 @@ Later releases are planned to include mod support through keyword lookup and opt
 
 ## Building
 The plugin is written and compiled using Visual Studio 2015 using the v140 platform toolset with the target platform being 8.1.
-This plugin also makes use of Himika's libSkyrim, which can be found here: https://github.com/himika/libSkyrim
+This plugin also makes use of libSkyrim, which originally was developed by Himika and has been extended by me, which can be found here: https://github.com/Dakraid/libSkyrim
 
-On release this will be improvement so any manual setup is no longer required.
+On release(-ish) this will be improvement so any manual setup is no longer required.
 
 ## Thanks
 I want to thank everyone on the Skyrim RE Discord for helping out with researching and advising on implementation. This includes, in no particular order: DavidJCobb, Nukem, Aers, PowerOfThree (po3), Ryan, and everyone else who has helped making this come to fruition.
