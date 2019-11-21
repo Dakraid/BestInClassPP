@@ -27,7 +27,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140_xp</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -54,7 +54,6 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
       <Optimization>Full</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeaderFile />
@@ -73,12 +72,11 @@
       <AdditionalLibraryDirectories>$(SolutionDir)mruby\build\host\lib</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>(robocopy "$(TargetDir.TrimEnd('\'))" "S:\ModOrganizer\Mods\Debugging\SKSE\Plugins" $(TargetFileName)  /is) ^&amp; IF %ERRORLEVEL% LEQ 1 exit 0</Command>
+      <Command>(robocopy "$(TargetDir.TrimEnd('\'))" "S:\ModOrganizer\Mods\BestInClassPlusPlus - SKSE Plugin - Development\SKSE\Plugins" $(TargetFileName)  /is) ^&amp; IF %ERRORLEVEL% LEQ 1 exit 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level1</WarningLevel>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -101,11 +99,13 @@
       <AdditionalLibraryDirectories>$(SolutionDir)mruby\build\host\lib</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>"$(SolutionDir)install_dll.bat" "$(TargetPath)"</Command>
+      <Command>(robocopy "$(TargetDir.TrimEnd('\'))" "S:\ModOrganizer\Mods\BestInClassPlusPlus - SKSE Plugin - Development\SKSE\Plugins" $(TargetFileName)  /is) ^&amp; IF %ERRORLEVEL% LEQ 1 exit 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="hook.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="processor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SKSE\SKSE.vcxproj">
@@ -116,7 +116,11 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="constants.h" />
     <ClInclude Include="date.h" />
+    <ClInclude Include="hook.h" />
+    <ClInclude Include="main.h" />
+    <ClInclude Include="processor.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
