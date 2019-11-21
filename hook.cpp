@@ -2,7 +2,7 @@
 
 void Hook_MarkBestInClass()
 {
-	Plugin_BestInClassPP_Proc Proc;
+	Plugin_BestInClassPP_Proc proc;
 
 	UIStringHolder* holder = UIStringHolder::GetSingleton();
 	MenuManager*	mm	   = MenuManager::GetSingleton();
@@ -12,23 +12,25 @@ void Hook_MarkBestInClass()
 		InventoryMenu*				 invMenu	   = dynamic_cast<InventoryMenu*>(menu);
 		BSTArray<StandardItemData*>& itemDataArray = invMenu->inventoryData->items;
 
-		Proc.LogMessage("HOOK: InventoryMenu is at address %08X", invMenu);
-		Proc.ProcessInventory(itemDataArray);
+		proc.LogMessage("HOOK: InventoryMenu is at address %08X", invMenu);
+		proc.ProcessInventory(itemDataArray);
 	} else if(mm->IsMenuOpen(holder->barterMenu)) {
 		IMenu*						 menu		   = mm->GetMenu(holder->barterMenu);
 		BarterMenu*					 barMenu	   = dynamic_cast<BarterMenu*>(menu);
 		BSTArray<StandardItemData*>& itemDataArray = barMenu->barterInventoryData->items;
 
-		Proc.LogMessage("HOOK: BarterMenu is at address %08X", barMenu);
-		Proc.ProcessInventory(itemDataArray);
+		proc.LogMessage("HOOK: BarterMenu is at address %08X", barMenu);
+		proc.ProcessInventory(itemDataArray);
 	} else if(mm->IsMenuOpen(holder->containerMenu)) {
 		IMenu*						 menu		   = mm->GetMenu(holder->containerMenu);
 		ContainerMenu*				 conMenu	   = dynamic_cast<ContainerMenu*>(menu);
 		BSTArray<StandardItemData*>& itemDataArray = conMenu->inventoryData->items;
 
-		Proc.LogMessage("HOOK: ContainerMenu is at address %08X", conMenu);
-		Proc.ProcessInventory(itemDataArray);
+		proc.LogMessage("HOOK: ContainerMenu is at address %08X", conMenu);
+		proc.ProcessInventory(itemDataArray);
 	}
+
+	return;
 }
 
 void InstallHook()
